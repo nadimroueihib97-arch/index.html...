@@ -1,0 +1,169 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PropertyFlow AI</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1020;color:#f8fafc;font-family:Arial,sans-serif}
+header{padding:22px;background:#121a30;border-bottom:1px solid #29344e}
+h1{margin:0;color:#a99aff;font-size:25px}
+header p{color:#94a3b8;margin-bottom:0}
+main{max-width:1000px;margin:auto;padding:20px}
+.card{background:#151f35;border:1px solid #29344e;border-radius:14px;padding:18px;margin-bottom:18px}
+h2{font-size:19px;margin-top:0}
+input,select,button{width:100%;padding:13px;border-radius:8px;margin:7px 0;border:1px solid #394762;font-size:15px}
+input,select{background:#0c1528;color:white}
+button{background:#7964f5;color:white;border:0;font-weight:bold;cursor:pointer}
+button.secondary{background:#29344e}
+.tabs{display:flex;gap:8px;margin-bottom:18px}
+.tabs button{flex:1}
+.message{padding:12px;border-radius:10px;margin:10px 0;max-width:90%;background:#26334d}
+.user{margin-left:auto;background:#5545aa}
+#chat{height:260px;overflow:auto;display:flex;flex-direction:column}
+.small{color:#94a3b8;font-size:13px}
+.stat{font-size:27px;color:#a99aff;font-weight:bold}
+.lead{padding:12px;border-bottom:1px solid #394762}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<header>
+<h1>PropertyFlow AI</h1>
+<p>Real Estate Lead Management System</p>
+</header>
+
+<main>
+<div class="tabs">
+<button onclick="showTab('assistant')">AI Assistant</button>
+<button class="secondary" onclick="showTab('dashboard')">Agent Dashboard</button>
+</div>
+
+<section id="assistant">
+<div class="card">
+<h2>Property Assistant</h2>
+<p class="small">Welcome! Tell us what property you're looking for.</p>
+<div id="chat">
+<div class="message">Hello! I'm the PropertyFlow assistant. Are you looking to buy or rent?</div>
+</div>
+<input id="reply" placeholder="Type your answer..." />
+<button onclick="sendMessage()">Send Message</button>
+</div>
+</section>
+
+<section id="dashboard" class="hidden">
+<div class="card">
+<h2>Agent Dashboard</h2>
+<p>Total enquiries</p>
+<div class="stat" id="total">0</div>
+<p class="small">Saved demo leads on this device</p>
+</div>
+<div class="card">
+<h2>Customer Leads</h2>
+<div id="leads"></div>
+<button class="secondary" onclick="downloadLeads()">Export Leads CSV</button>
+</div>
+</section>
+</main>
+
+<script>
+let step=0;
+let current={};
+
+function showTab(tab){
+document.getElementById('assistant').classList.toggle('hidden',tab!=='assistant');
+document.getElementById('dashboard').classList.toggle('hidden',tab!=='dashboard');
+if(tab==='dashboard')renderLeads();
+}
+
+function addMessage(text,type){
+const div=document.createElement('div');
+div.className='message '+(type==='user'?'user':'');
+div.textContent=text;
+const chat=document.getElementById('chat');
+chat.appendChild(div);
+chat.scrollTop=chat.scrollHeight;
+}
+
+function sendMessage(){
+const input=document.getElementById('reply');
+const answer=input.value.trim();
+if(!answer)return;
+input.value='';
+addMessage(answer,'user');
+
+if(step===0){
+current.type=answer;
+addMessage('Great! What is your preferred location?');
+step=1;
+}else if(step===1){
+current.location=answer;
+addMessage('What is your approximate budget?');
+step=2;
+}else if(step===2){
+current.budget=answer;
+addMessage('What is your name?');
+step=3;
+}else if(step===3){
+current.name=answer;
+addMessage('What is your phone number or email so an agent can contact you?');
+step=4;
+}else if(step===4){
+current.contact=answer;
+current.date=new Date().toLocaleString();
+let leads=JSON.parse(localStorage.getItem('pf_leads')||'[]');
+leads.push(current);
+localStorage.setItem('pf_leads',JSON.stringify(leads));
+addMessage('Thank you! Your enquiry has been saved. A property agent can follow up with you.');
+current={};
+step=0;
+}
+}
+
+function renderLeads(){
+let leads=JSON.parse(localStorage.getItem('pf_leads')||'[]');
+document.getElementById('total').textContent=leads.length;
+const box=document.getElementById('leads');
+box.innerHTML='';
+if(!leads.length){
+box.textContent='No enquiries yet. Try the assistant to create a demo lead.';
+return;
+}
+leads.slice().reverse().forEach(lead=>{
+const div=document.createElement('div');
+div.className='lead';
+const title=document.createElement('strong');
+title.textContent=lead.name||'Customer';
+const details=document.createElement('p');
+details.className='small';
+details.textContent=
+(lead.type||'')+' | '+(lead.location||'')+
+' | Budget: '+(lead.budget||'')+
+' | Contact: '+(lead.contact||'')+
+' | '+(lead.date||'');
+div.append(title,details);
+box.appendChild(div);
+});
+}
+
+function downloadLeads(){
+const leads=JSON.parse(localStorage.getItem('pf_leads')||'[]');
+if(!leads.length){alert('No leads to export');return;}
+const keys=['name','type','location','budget','contact','date'];
+const csv=[keys.join(','),...leads.map(l=>keys.map(k=>'"'+String(l[k]||'').replace(/"/g,'""')+'"').join(','))].join('\n');
+const blob=new Blob([csv],{type:'text/csv'});
+const url=URL.createObjectURL(blob);
+const a=document.createElement('a');
+a.href=url;a.download='property-leads.csv';a.click();
+URL.revokeObjectURL(url);
+}
+
+document.getElementById('reply').addEventListener('keydown',e=>{
+if(e.key==='Enter')sendMessage();
+});
+</script>
+</body>
+</html>
